@@ -46,7 +46,7 @@ def momentum_to_velocity(p, m):
 pion_E = sqrt(m_pp * c * c * m_pp * c * c + pion_p * c * pion_p * c)
 pion_fv = np.array([pion_E, 0, 0, pion_p])
 
-
+"""
 data_len = 100
 pions = np.zeros((data_len, 2, 3))
 
@@ -74,4 +74,4 @@ ax.set_title("side_view")
 #ax.set_aspect("equal")
 fig.tight_layout()
 plt.show() # +pi in orange, 0pi in green
-
+"""
