@@ -1,18 +1,22 @@
 import numpy as np
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from math import sqrt
 from scipy.constants import c
+from library import v_kaon as kaon_v
+from library import p_pion as pion_p
+from library import m_pp, m_np, m_k
 
 
 def pion_pair():
     positive_pion_fv = random_isotropic_rotation(pion_fv)
     neutral_pion_fv = -1*positive_pion_fv # inverting everything, so that the momenta are correct
     neutral_pion_fv[0] = m_k*c*c - positive_pion_fv[0] # fixing energy through energy conservation
-    positive_pion_velocity = boost(positive_pion_fv)[1:]*c*c/positive_pion_fv[0] # relativistic momentum
-    neutral_pion_velocity = boost(neutral_pion_fv)[1:]*c*c/neutral_pion_fv[0]
+    positive_pion_velocity = momentum_to_velocity(boost(positive_pion_fv)[1:], m_pp)
+    neutral_pion_velocity = momentum_to_velocity(boost(neutral_pion_fv)[1:], m_np)
+    
     return (positive_pion_velocity, neutral_pion_velocity)
 
-def random_isotropic_rotation(pion_fv):  # ~Marsaglia method
+def random_isotropic_rotation(pion_fv):  # ~Marsaglia method, checked, all good
     fv = 1 * pion_fv
     while True:
         a = 2 * np.random.rand() - 1
@@ -24,29 +28,25 @@ def random_isotropic_rotation(pion_fv):  # ~Marsaglia method
     fv[3] = fv[3] * (1 - 2 * (a * a + b * b))
     return fv
 
-
-def boost(fv):
+def boost(fv): # checked, all good
     beta = kaon_v / c
     gamma = 1 / sqrt(1 - beta * beta)
-    LT = np.array([[gamma, 0, 0, beta * gamma*c], # from appendix with *c, /c added to match the units
+    LT = np.array([[gamma, 0, 0, beta * gamma*c],
                    [0, 1, 0, 0],
                    [0, 0, 1, 0],
                    [beta * gamma/c, 0, 0, gamma]])
 
     return LT @ fv
 
+def momentum_to_velocity(p, m):
+    p_tot2 = np.sum(p*p) # total momentum squared
+    beta2 = p_tot2 / (m*m*c*c + p_tot2)
+    return p * sqrt(1 - beta2)/m
 
-kaon_v = 299785945.432217 # from library
-pion_v = 242011283.59450692  # from library
-pion_m = 1.349768 * 1e8  # eV/c**2 for +pion from pdg
-m_k = 4.93677 * 1e8
-m_np = 1.349768 * 1e8
+pion_E = sqrt(m_pp * c * c * m_pp * c * c + pion_p * c * pion_p * c)
+pion_fv = np.array([pion_E, 0, 0, pion_p])
 
-pion_p = 5.723153942711986e+16
-pion_E = sqrt(pion_m * c * c * pion_m * c * c + pion_p * c * pion_p * c)  # E = sqrt( (mc**2)**2 + (p*c)**2)
-pion_fv = np.array([pion_E, 0, 0, pion_p])  # four-vector parallel to z-axis
 
-'''
 data_len = 100
 pions = np.zeros((data_len, 2, 3))
 
@@ -74,4 +74,4 @@ ax.set_title("side_view")
 #ax.set_aspect("equal")
 fig.tight_layout()
 plt.show() # +pi in orange, 0pi in green
-'''
+
