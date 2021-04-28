@@ -2,77 +2,50 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.optimize
 from boost import pion_pair
+from average_decay_length import kaon_average_decay_length
 
 
-pion_m_positive = 2.48807 * 10**(-34)   # kg, 139.57039*1e6 eV/c^2      from pdg
-pion_m_neutral = 2.40618 * 10**(-34)    # kg, 134.9768*1e6   #eV/c^2    from pdg
-kaon_m = 8.80059 * 10**(-34)            # kg, 493.677*1e6 eV/c^2        from pdg
-
-pion_lifetime_positive = 2.6033*10**(-8) #seconds   from pdg
-kaon_lifetime = 1.2380*10**(-8)          #seconds    from pdg
-
-average_decay_length_pion_positive = 4.188*1e3 #meters  from script
-
-# beta = v/c and gamma = 1/sqrt(1-beta^2)
-# 4.188*1e3 = pion_l = beta * gamma * c * pion_t = pion_v / c * 1/sqrt(1-(pion_v)^2/c^2) * c * pion_t
-# -> pion_v = pion_l / pion_t / sqrt(1 + (pion_l)^2 / (pion_t * c)^2)
-# p = pion_m * pion_v
-# kaon_v = p / kaon_m
-# kaon_l = kaon_v / sqrt(1 - (kaon_v/c)^2) * tau_kaon
-
-#p = pion_m_positive * average_decay_length_pion_positive / pion_lifetime_positive / sqrt(1 + average_decay_length_pion_positive**2 / (pion_lifetime_positive * c)**2)
-#average_decay_length_kaon = p / kaon_m / sqrt(1 - (p / kaon_m / c)**2) * kaon_lifetime
-# the new formulas give results that I think are not right
-
-average_decay_length_kaon = pion_m_positive / kaon_m * kaon_lifetime / pion_lifetime_positive * average_decay_length_pion_positive
-
-data_len = 10000
-decay_position = np.zeros(data_len)
-positive_pion_velocity = np.zeros((data_len, 3))
-neutral_pion_velocity = np.zeros((data_len, 3))
-for i in range(data_len):
-    s = np.random.exponential(average_decay_length_kaon)
-    decay_position[i] = s
-    v, w = pion_pair()
-    positive_pion_velocity[i] = v
-    neutral_pion_velocity[i] = w
-# print(np.mean(decay_position)) #arithmetic mean
+def data_generator(): # generates pions and decay positions
+    decay_position = np.zeros(data_len)
+    positive_pion_velocity = np.zeros((data_len, 3))
+    neutral_pion_velocity = np.zeros((data_len, 3))
+    for i in range(data_len):
+        s = np.random.exponential(average_decay_length_kaon)
+        decay_position[i] = s
+        v, w = pion_pair()
+        positive_pion_velocity[i] = v
+        neutral_pion_velocity[i] = w
+    return decay_position, positive_pion_velocity, neutral_pion_velocity
 
 
-def number_of_detections(detector_position):
+def number_of_detections(detector_position): # evaluates entire generated data on one position
     results_positive = []
+    results_neutral = []
     distance = np.zeros(data_len)
     for k in range(data_len):
         distance[k] = detector_position-decay_position[k]
-        if positive_pion_velocity[k][2] <= 0 and distance[k]>0:
+        if distance[k] < 0:
             results_positive.append(0)
-        elif positive_pion_velocity[k][2] >= 0 and distance[k]<0:
-            results_positive.append(0)
+            results_neutral.append(0)
         else:
-            t = abs(distance[k] / positive_pion_velocity[k][2])
-            dx = t * positive_pion_velocity[k][0]
-            dy = t * positive_pion_velocity[k][1]
-            if dx**2+dy**2 > 4:
+            t_positive = distance[k] / positive_pion_velocity[k][2]
+            dx_positive = t_positive * positive_pion_velocity[k][0]
+            dy_positive = t_positive * positive_pion_velocity[k][1]
+            if dx_positive ** 2 + dy_positive ** 2 > 4:
                 results_positive.append(0)
             else:
                 results_positive.append(1)
-    count_positive = results_positive.count(1) # this is how many times the detector detects the positive pion
 
-    results_neutral = []
-    for k in range(data_len):
-        if neutral_pion_velocity[k][2] <= 0 and detector_position - decay_position[k] > 0:
-            results_positive.append(0)
-        elif neutral_pion_velocity[k][2] >= 0 and detector_position - decay_position[k] < 0:
-            results_neutral.append(0)
-        else:
-            t = abs(distance[k])/neutral_pion_velocity[k][2]
-            dx = t*neutral_pion_velocity[k][0]
-            dy = t * neutral_pion_velocity[k][1]
-            if dx**2+dy**2 > 4:
+            t_neutral = distance[k] / neutral_pion_velocity[k][2]
+            dx_neutral = t_neutral * neutral_pion_velocity[k][0]
+            dy_neutral = t_neutral * neutral_pion_velocity[k][1]
+            if dx_neutral ** 2 + dy_neutral ** 2 > 4:
                 results_neutral.append(0)
             else:
                 results_neutral.append(1)
-    count_neutral = results_neutral.count(1) # this is how many times the detector detects the neutral pion
+
+    count_positive = results_positive.count(1)
+    count_neutral = results_neutral.count(1)
 
     success = []
     if count_positive != 0 and count_neutral != 0:
@@ -81,18 +54,48 @@ def number_of_detections(detector_position):
         success = [x for x in indices_positive if x in indices_neutral]
 
     fails = data_len - len(success)
-    return fails    # to maximise success, we minimise fails
+    return fails
 
 
-optimal_distance = scipy.optimize.minimize(number_of_detections,x0=1000)
-print(optimal_distance["fun"])
-print(optimal_distance["x"])
+'''
+Up untill here only copy of option0, now comes the interesting part:
+'''
+
+data_len = 1000 # how many pion pairs and corresponding decay positions we generate
+iterations = 10 # how many times we generate data sets of length data_len
+detector_positions = np.linspace(0, 1000, 100) # detector positions on which we check number_of_detections()
+
+average_decay_length_kaon = kaon_average_decay_length
+average_fails_over_distances = 0*detector_positions
+fails_over_distances_over_iterations = np.zeros((iterations, len(detector_positions)))
+
+for i in range(iterations):
+    decay_position, positive_pion_velocity, neutral_pion_velocity = data_generator()
+    for j, d in enumerate(detector_positions):
+        fails_over_distances_over_iterations[i, j] = number_of_detections(d)
+    plt.plot(detector_positions, fails_over_distances_over_iterations[i], lw = 1, color = "green", alpha = 1/iterations)
+average_fails_over_distances = np.average(fails_over_distances_over_iterations, axis = 0) # axis 0 is iterations
 
 
-N = 100
-positions = np.linspace(1, 1000, N)
-results = 1*positions
-for i, d in enumerate(positions):
-    results[i] = number_of_detections(d)
-plt.plot(positions, results, marker = ".", color = "orange")
+def model_fct(x, a, b, c):
+    return a*x**2 + b*x + c     # we want the fit to be a polynomial of second degree
+
+
+detector_positions_slice = detector_positions[25:40]                        #slicing the data for a good fit
+average_fails_over_distances_slice = average_fails_over_distances[25:40]
+popt, pcov = scipy.optimize.curve_fit(model_fct, detector_positions_slice, average_fails_over_distances_slice)  # fitting
+
+
+def fit(x):
+    return model_fct(x,popt[0], popt[1], popt[2])
+
+
+optimal = scipy.optimize.minimize(fit,x0=300)   # optimising the fit
+print("The minimum lies at", optimal["x"][0])
+
+plt.plot(detector_positions, average_fails_over_distances, lw = 1, marker = ".", color = "orange")
+#plt.plot(detector_positions_slice, model_fct(detector_positions_slice, popt[0], popt[1], popt[2]))
+plt.title("Number of Fails versus Detector Positions")
+plt.xlabel("Detector position")
+plt.ylabel("Number of fails")
 plt.show()
