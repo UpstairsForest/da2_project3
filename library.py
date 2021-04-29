@@ -14,8 +14,7 @@ E_k = c*c * m_k # rest energies of the three particlesp
 E_pp = c*c * m_pp
 E_np = c*c * m_np
 
-p_pion = sqrt((E_k**4 + E_pp**4 + E_np**4 - 2*E_pp*E_pp*E_np*E_np - 2*E_k*E_k*(E_pp*E_pp + E_np*E_np))
-               /(4*(E_k*E_k + E_pp*E_pp + E_np*E_np)))/c
+p_pion = sqrt(((E_k*E_k - E_pp*E_pp - E_np*E_np)**2 - 4*E_pp*E_pp*E_np*E_np) / (4*E_k*E_k))/c
 
 p_kaon = m_pp * d_pp / t_pp
 
