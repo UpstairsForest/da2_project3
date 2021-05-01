@@ -7,13 +7,16 @@ from library import p_pion as pion_p
 from library import m_pp, m_np, m_k
 
 
-def pion_pair():
+def pion_pair(mode = "whatever"):
     positive_pion_fv = random_isotropic_rotation(pion_fv)
     neutral_pion_fv = -1 * positive_pion_fv  # inverting everything, so that the momenta are correct
     neutral_pion_fv[0] = m_k * c * c - positive_pion_fv[0]  # fixing energy through energy conservation
-    positive_pion_velocity = gaussian_angle_rotation(momentum_to_velocity(boost(positive_pion_fv)[1:], m_pp))
-    neutral_pion_velocity = gaussian_angle_rotation(momentum_to_velocity(boost(neutral_pion_fv)[1:], m_np))
 
+    positive_pion_velocity = momentum_to_velocity(boost(positive_pion_fv)[1:], m_pp)
+    neutral_pion_velocity = momentum_to_velocity(boost(neutral_pion_fv)[1:], m_np)
+    if mode != "non-divergent":
+        positive_pion_velocity = gaussian_angle_rotation(positive_pion_velocity)
+        neutral_pion_velocity = gaussian_angle_rotation(neutral_pion_velocity)
     return (positive_pion_velocity, neutral_pion_velocity)
 
 
@@ -49,29 +52,26 @@ def momentum_to_velocity(p, m):
 
 def gaussian_angle_rotation(v):
     if v[0] != 0:
-        current_theta = np.arctan(v[1] / v[0])
+        current_phi = np.arctan(v[1] / v[0])
         if v[0] < 0 and v[1] < 0:
-            current_theta = np.pi + current_theta
-    else:
-        current_theta = np.pi / 2
-        if v[1] < 0:
-            current_theta = np.pi + current_theta
-    v = Rz(-current_theta) @ v  # rotate to xz plane
-    if v[2] != 0:
-        current_phi = np.arctan(v[0] / v[2])
-        if v[2] < 0 and v[0] < 0:
             current_phi = np.pi + current_phi
     else:
         current_phi = np.pi / 2
-        if v[0] < 0:
+        if v[1] < 0:
             current_phi = np.pi + current_phi
-    v = Ry(-current_phi) @ v  # rotate to be parallel to z
-    '''
-    can't just set v[2] = |v| as we need to find the current theta and phi to put everything back
-    '''
-    rand_phi = np.random.normal(scale=0.001)
-    rand_theta = 2 * np.pi * np.random.rand()
-    return Rz(current_theta) @ Ry(current_phi) @ Rz(rand_theta) @ Ry(rand_phi) @ v
+    v = Rz(-current_phi) @ v  # rotate to xz plane
+
+    if v[2] != 0:
+        current_theta = np.arctan(v[0] / v[2])
+        if v[2] < 0 and v[0] < 0:
+            current_theta = np.pi + current_theta
+    else:
+        current_theta = np.pi / 2
+        if v[0] < 0:
+            current_theta = np.pi + current_theta
+
+    rand_theta = np.random.normal(scale=0.001)
+    return Rz(current_phi) @ Ry(rand_theta) @ v
 
 
 def Rz(theta):
