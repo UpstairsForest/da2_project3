@@ -10,10 +10,16 @@ l_k = np.linspace(1,5000, num=z)
 def nll(l_k):
     return -1*np.sum(np.log((0.84/4188*np.exp(-x/4188))+0.16/l_k*np.exp(-x/l_k)))
 
+#using scipy.optimize.minimize to get the minimum and with that the average decay length
+f = minimize(nll, 2)
+kaon_average_decay_length = f.x
+print('The average decay length is', kaon_average_decay_length)
+
+
 #just to create the horizontal line which gives the uncertainty
 y = []
 for i in range(z):
-    y.append(916722.5)
+    y.append(nll(kaon_average_decay_length)+0.5)
 
 #plotting everything
 plt.figure()
@@ -26,11 +32,6 @@ plt.grid(color='lightgrey', linestyle='-')
 plt.xlim([545, 580])
 plt.ylim([916722, 916722.9])
 plt.show()
-
-#using scipy.optimize.minimize to get the minimum and with that the average decay length
-f = minimize(nll, 2)
-kaon_average_decay_length = f.x
-print('The average decay length is', kaon_average_decay_length)
 
 
 #compare with the theoretical value
