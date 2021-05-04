@@ -1,1 +1,0 @@
-# contains all the literature values and derived constants

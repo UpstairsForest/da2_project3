@@ -1,35 +1,43 @@
 import numpy as np
-import scipy
-import functions_library as fl
-import constants_library as cl
+import scipy.optimize
+from functions import data_generator, number_of_detections
+import matplotlib.pyplot as plt
 
 
-N_decays = 1e4 # number of generated decays
-N_positions = 1e2 # number of evaluated detector positions
-N_iterations = 10 # number of sets of decays evaluated for the average
-z_min = 0
-z_max = 1000
+data_len = 1000 # how many pion pairs and corresponding decay positions we generate
+iterations = 10 # how many times we generate data sets of length data_len
+detector_positions = np.linspace(0, 1000, 100) # detector positions on which we check number_of_detections()
 
-z_detector = np.arange(z_min, z_max, N_positions) # evaluated detector positions
-r_decays = np.random.exponential(cl.L_k)
+average_fails_over_distances = 0*detector_positions
+fails_over_distances_over_iterations = np.zeros((iterations, len(detector_positions)))
 
-e_isotropic = fl.isotropic_angle_distribution(N_decays) # isotropically distributed unit vectors
-kaon_p_cpi = cl.tot_p_pi * e_isotropic # momenta of the charged pions in the kaon rest frame
-kaon_p_npi = -1* kaon_p_cpi # momenta of the neutral pions are opposite to those of the charged ones in kaon rest frame
+for i in range(iterations):
+    decay_position, positive_pion_velocity, neutral_pion_velocity = data_generator(data_len)
+    for j, d in enumerate(detector_positions):
+        fails_over_distances_over_iterations[i, j] = number_of_detections(data_len, d, decay_position, positive_pion_velocity, neutral_pion_velocity)
+    plt.plot(detector_positions, fails_over_distances_over_iterations[i], lw=1, color="green",alpha=1 / iterations)
+average_fails_over_distances = np.average(fails_over_distances_over_iterations, axis = 0) # axis 0 is iterations
 
-lab_p_cpi = fl.boost(np.asarray([np.full(N_decays, cl.E_cpi), kaon_p_cpi[0], kaon_p_cpi[1], kaon_p_npi[2]]))[1:]
-lab_p_npi = fl.boost(np.asarray([np.full(N_decays, cl.E_cpi), kaon_p_npi[0], kaon_p_npi[1], kaon_p_npi[2]]))[1:]
 
-nondiv_v_cpi = fl.momentum_to_velocity(lab_p_cpi)
-nondiv_v_npi = fl.momentum_to_velocity(lab_p_npi)
+def model_fct(x, a, b, c, d, e):
+    return a*x*x*x*x + b*x*x*x + c*x*x + d*x + e     # we want the fit to be a polynomial of fourth degree
 
-theta_gaussian = np.random.normal(size = N_decays, scale = 0.001) # scale is std in rad
-r_decays = fl.rot_y(r_decays, theta_gaussian) # deviating decay positions
-div_v_cpi = fl.rot_y(nondiv_v_cpi, theta_gaussian) # deviating velocities in the lab rest frame
-div_v_npi = fl.rot_y(nondiv_v_npi, theta_gaussian)
 
-for i in range(N_iterations):
-    misses_average = (i*misses_average + fl.detector(z_detector)) / (i+1) # update the averages instead of storing all i
+detector_positions_slice = detector_positions[20:35]                        #slicing the data for a good fit
+average_fails_over_distances_slice = average_fails_over_distances[20:35]
+popt, pcov = scipy.optimize.curve_fit(model_fct, detector_positions_slice, average_fails_over_distances_slice)  # fitting
 
-coefficients = scipy.optimize.curve_fit(fl.model_fit, z_detector, misses_average) # coeffs for the fit
-optimal_detector_position = scipy.optimize.minimize(fl.fit(), x0 = 300)["x"][0]
+
+def fit(x):
+    return model_fct(x,popt[0], popt[1], popt[2], popt[3], popt[4])
+
+
+optimal = scipy.optimize.minimize(fit,x0=300)   # optimising the fit
+print("The minimum lies at", np.round(optimal["x"][0], 1), "m")
+
+plt.plot(detector_positions, average_fails_over_distances, lw = 1, marker = ".", color = "orange")
+plt.plot(detector_positions_slice, model_fct(detector_positions_slice, popt[0], popt[1], popt[2], popt[3], popt[4]), color = "black")
+plt.title("Number of Fails versus Detector Positions")
+plt.xlabel("Detector position")
+plt.ylabel("Number of fails")
+plt.show()
